@@ -1,0 +1,6 @@
+record_time,pickup,block_break,tnt_prime,multi_place,chat,block_damage,block_place,craft,dmg_by_entity,death,explosion,furnace_extract,inv_close,inv_open,bucket_empty,bucket_fill,cmd_pre,cmd_send,player_death,item_drop,exp_change,interact,level_change,quit,respawn,teleport,ChunkLoad,redstone,AFKtime
+2025-06-29 15:45:55,94,326,11,0,5,264,30,3,242,1,0,0,47,12,0,0,36,30,3,4,55,473,22,0,3,11,254,0,0
+2025-07-01 22:53:34,923,13229,7,0,1,16260,853,0,669,1,0,0,45,15,0,0,17,32,4,23,21,24150,13,0,4,7,916,1,0
+2025-07-01 23:54:42,82,1265,2,0,0,1409,905,2,17,1,0,0,28,13,0,0,52,22,2,2,4,3217,0,0,2,2,326,0,0
+2025-07-02 00:56:41,7,1,1,0,0,2,547,2,44,1,0,0,35,30,0,0,10,21,0,12,3,622,1,0,0,1,64,0,0
+2025-07-02 02:06:58,3,119,0,0,0,30,1028,5,0,0,0,0,18,8,0,0,3,23,0,0,0,1146,0,0,0,0,56,0,0

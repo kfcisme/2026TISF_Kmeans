@@ -1,0 +1,86 @@
+random_seed: 42
+task: "classification"
+label_col: "label"
+group_col: "player_id"     
+
+# 特徵
+feature_cols:
+  - pickup
+  - block_break
+  - tnt_prime
+  - multi_place
+  - chat
+  - block_damage
+  - block_place
+  - craft
+  - dmg_by_entity
+  - death
+  - explosion
+  - furnace_extract
+  - inv_close
+  - inv_open
+  - bucket_empty
+  - bucket_fill
+  - cmd_pre
+  - cmd_send
+  - player_death
+  - item_drop
+  - exp_change
+  - interact
+  - level_change
+  - quit
+  - respawn
+  - teleport
+  - chunkload
+  - redstone
+  - afktime            
+derived_features:
+  - AFK_ratio          
+  - active_minutes      
+
+
+filter:
+  drop_afk_ratio_eq1: true    
+winsor:
+  enabled: false
+  p_low: 0.0
+  p_high: 0.995
+transform:
+  log1p: false
+  robust_scale: false
+
+
+split:
+  test_size_players: 0.2    
+  val_size_of_train: 0.15   
+
+
+class_weight: "balanced"
+
+
+model:
+  hidden_sizes: [256, 128, 64]
+  dropout: 0.15
+  activation: "relu"
+
+
+optimizer:
+  name: "adamw"
+  lr: 1.5e-3
+  weight_decay: 1e-4
+scheduler:
+  name: "cosine"
+  t_max: 40
+
+
+train:
+  batch_size: 512
+  num_epochs: 80
+  early_stop_patience: 10
+  num_workers: 4
+  mixed_precision: true
+
+
+export:
+  onnx_path: "mlp_player_classifier.onnx"
+  opset: 17

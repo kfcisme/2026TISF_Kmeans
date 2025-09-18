@@ -1,0 +1,70 @@
+# 門檻
+unknown_percentile: 97
+softmax_confidence_min: 0.5
+secondary_gap_threshold: 0.1
+top_m: 5
+afk_threshold: 0.99
+
+# 關閉複合標籤（你之前說要去掉複合）
+allow_composite: false
+
+axes:
+  Build:
+    rate_block_place: 1.0
+    rate_multi_place: 0.8
+    rate_craft: 0.8
+    rate_furnace_extract: 0.6
+    build_bias: 0.8
+    rate_block_break: -0.1
+
+  Exploration:
+    rate_chunkload: 1.0
+    rate_teleport: 1.0
+    explore_intensity: 1.0
+
+  Survival:
+    rate_dmg_by_entity: 0.6
+    rate_exp_change: 0.8
+    rate_level_change: 0.8
+    rate_respawn: 0.4
+    rate_furnace_extract: 0.7
+    survival_intensity: 1.0
+
+  Redstone:
+    rate_redstone: 0.8
+    # rate_craft: 0.8
+    redstone_intensity: 0.8
+
+  PvP:
+    rate_player_death: 0.6    # rate_dmg_by_entity: 0.8
+    pvp_intensity: 0.7
+
+  Explosive:
+    rate_tnt_prime: 0.8
+    rate_explosion: 0.8
+    rate_block_damage: 0.3
+    explosive_intensity: 0.6
+
+  Social:
+    rate_chat: 0.8
+    rate_item_drop: 0.4
+    rate_inv_open: 0.4
+    rate_inv_close: 0.4
+    social_intensity: 0.6
+
+  AFK:
+    afk_ratio: 0.01
+sample_override:
+  survival:
+    by_percentile: { rate_dmg_by_entity: 90, survival_intensity: 85 }
+    also_require_any: [rate_respawn, rate_level_change]
+  explorer:
+    by_percentile: { explore_intensity: 90, rate_chunkload: 85 }
+    also_require_any: [rate_teleport, rate_interact]
+
+  redstone:
+    by_percentile: { redstone_intensity: 95, rate_redstone: 90 }  # 提高門檻，避免一面倒
+
+  pvp:
+    by_percentile: { pvp_intensity: 95 }
+    also_require_any: [rate_player_death]

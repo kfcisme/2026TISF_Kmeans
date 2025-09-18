@@ -1,0 +1,6 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+numpy==1.26.4
+# 需要 ONNX 或 Torch 就解除註解
+# onnxruntime==1.18.1
+# torch==2.4.0

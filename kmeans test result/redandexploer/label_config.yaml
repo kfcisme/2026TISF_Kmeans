@@ -1,0 +1,74 @@
+
+unknown_percentile: 97          # 距中心最遠的 3% → Unknown
+softmax_confidence_min: 0.6     # 低於 0.6 不硬標
+secondary_gap_threshold: 999   # 主/副軸分數差小於此值 → 輸出混合標籤
+top_m: 3                   # 每群輸出前 m 個關鍵特徵（按中心絕對值）
+# tau:  自訂軟指派溫度（不設定則自動用最小距離的中位數）
+
+axes:
+  Build:
+    rate_block_place: 1.0
+    rate_multi_place: 0.8
+    rate_craft: 0.8
+    rate_furnace_extract: 0.6
+    build_bias: 0.8
+    rate_block_break: -0.1
+
+  Exploration:
+    rate_chunkload: 0.6
+    rate_teleport: 0.6
+    explore_intensity: 0.6
+
+  Survival:
+    rate_dmg_by_entity: 0.6
+    rate_exp_change: 0.6
+    rate_level_change: 0.6
+    rate_respawn: 0.6
+    rate_furnace_extract: 0.2
+    survival_intensity: 0.7
+
+  Redstone:
+    rate_redstone: 1.0
+    redstone_intensity: 0.8
+
+  PvP:
+    rate_player_death: 0.7
+    rate_dmg_by_entity: 0.6
+    pvp_intensity: 0.8
+
+  Explosive:
+    rate_tnt_prime: 0.9
+    rate_explosion: 0.9
+    rate_block_damage: 0.3
+    explosive_intensity: 0.6
+
+  Social:
+    rate_chat: 0.8
+    rate_item_drop: 0.4
+    rate_inv_open: 0.4
+    rate_inv_close: 0.4
+    social_intensity: 0.6
+
+  AFK:
+    afk_ratio: 0.5
+
+afk_threshold: 0.70
+sample_override:
+  max_fraction_per_label: 0.25   
+  require_pmax_min: 0.55         
+  top_m: 3
+
+  explorer:
+    by_percentile:
+      rate_chunkload: 98         
+    also_require_any:
+      - explore_intensity
+    anti_features:
+      rate_redstone: 90         
+  redstone:
+    by_percentile:
+      rate_redstone: 98
+    also_require_any:
+      - redstone_intensity
+    anti_features:
+      rate_chunkload: 90 

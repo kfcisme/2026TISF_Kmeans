@@ -1,0 +1,8 @@
+pandas
+numpy
+pyyaml
+scikit-learn
+torch
+onnx
+onnxruntime
+tqdm

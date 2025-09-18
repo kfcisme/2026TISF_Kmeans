@@ -1,0 +1,8 @@
+root: "C:/Users/hsu96/OneDrive/Desktop/mysql_csv_exports/input"
+out:  "C:/Users/hsu96/OneDrive/Desktop/mysql_csv_exports/output"
+winsor_p: 99.5
+include_pvp: true
+use_logit_afk: false
+train_kmeans: true
+k: 7
+random_state: 42
