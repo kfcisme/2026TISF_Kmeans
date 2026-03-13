@@ -36,33 +36,27 @@ def read_one_table(path: Path) -> pd.DataFrame:
     except Exception as e:
         raise RuntimeError(f"Failed to read {path}: {e}")
 
-    # lower columns
     df.columns = [str(c).strip().lower() for c in df.columns]
 
-    # ensure required cols exist
     for col in RAW_COLS:
         if col not in df.columns:
             df[col] = 0
 
-    # try to find a time column
     time_col = None
     for c in OPT_TIME_COLS:
         if c in df.columns:
             time_col = c
             break
 
-    # keep only relevant + time if present
     keep_cols = RAW_COLS.copy()
     if time_col is not None:
         keep_cols = [time_col] + keep_cols
     df = df[keep_cols]
 
-    # numeric cast
     for col in RAW_COLS:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     if time_col is not None:
-        # try parse datetime
         try:
             df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
         except Exception:
@@ -97,30 +91,24 @@ def make_features_with_afk(df_raw: pd.DataFrame, winsor_p=99.5, use_logit_afk=Fa
     df = df_raw.copy()
     df.columns = [c.lower() for c in df.columns]
 
-    # ===== 動態時間窗：AFK > 30 分鐘 → 視為 60 分鐘窗；否則 30 分鐘窗 =====
-    # 原本寫死 30 分鐘與上限 1800 秒，這裡改成逐列決定 window_sec
+
     afk_sec = pd.to_numeric(df["afktime"], errors="coerce").fillna(0).clip(lower=0)
-    window_sec = np.where(afk_sec > 1800.0, 3600.0, 1800.0)  # >30m → 60m，否則 30m
-    # AFK 不能超過該筆樣本的時間窗
+    window_sec = np.where(afk_sec > 1800.0, 3600.0, 1800.0)  
     afk_sec = np.minimum(afk_sec, window_sec)
 
-    # 有效遊玩時間（分鐘）
+    # 有效遊玩時間
     am = (window_sec - afk_sec) / 60.0
     am = np.clip(am, a_min=0, a_max=None)
 
-    # AFK 比例（相對於該筆樣本實際時間窗）
     afk_ratio = (afk_sec / window_sec).clip(0, 1) 
 
     
-    # Helper: per-active-minute rate
     def rate(col: str) -> pd.Series:
         v = df[col].fillna(0).clip(lower=0).astype(float)
         r = pd.Series(np.zeros_like(v, dtype=float), index=v.index)
         mask = am > 0
         r.loc[mask] = v.loc[mask] / am.loc[mask]
-        # winsorize before log1p
         r = winsorize_series(r, winsor_p)
-        # log1p
         r = np.log1p(np.clip(r, a_min=0, a_max=None))
         return r
 
@@ -137,8 +125,7 @@ def make_features_with_afk(df_raw: pd.DataFrame, winsor_p=99.5, use_logit_afk=Fa
     for c in base_cols:
         feat[f"rate_{c}"] = rate(c)
 
-    # Derived features built on (unlogged) rates -> but we already logged base rates.
-    # For interpretability, derive from pre-log rates then log1p; so recompute pre-log rates quickly.
+
     def raw_rate(col: str) -> pd.Series:
         v = df[col].fillna(0).clip(lower=0).astype(float)
         r = pd.Series(np.zeros_like(v, dtype=float), index=v.index)
@@ -170,7 +157,6 @@ def make_features_with_afk(df_raw: pd.DataFrame, winsor_p=99.5, use_logit_afk=Fa
     else:
         pld = pd.Series(0.0, index=df.index)
 
-    # Domain features (then log1p)
     build_bias = np.log((plc+eps)/(brk+eps))
     explosive_intensity = np.log1p(tnt + exp)
     redstone_intensity = np.log1p(rds)
@@ -255,7 +241,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not root.exists() or not root.is_dir():
-        print(f"[ERROR] 根資料夾不存在或不是資料夾：{root}", file=sys.stderr)
+        print(f"ERROR cant find：{root}", file=sys.stderr)
         sys.exit(2)
 
     rows = []
@@ -265,19 +251,18 @@ def main():
         try:
             df = read_one_table(file)
         except Exception as e:
-            warnings.warn(f"讀取失敗略過：{file} -> {e}")
+            warnings.warn(f"fail to load：{file} -> {e}")
             continue
         df.insert(0, "server", server_name)
         df.insert(1, "player_id", player_id)
 
-        # add a row id if no time col
         has_time = any(c in df.columns for c in OPT_TIME_COLS)
         if not has_time:
             df.insert(2, "row_idx", np.arange(len(df)))
         rows.append(df)
 
     if not rows:
-        print("[ERROR] 沒有讀到任何檔案，請確認資料夾與副檔名（xlsx/xls/csv）。", file=sys.stderr)
+        print("ERROR didnt load and excel file,（xlsx/xls/csv）。", file=sys.stderr)
         sys.exit(3)
 
     df_all = pd.concat(rows, axis=0, ignore_index=True)
@@ -297,7 +282,6 @@ def main():
         include_pvp=args.include_pvp
     )
 
-    # 過濾掉完全 AFK 的樣本
     mask = feat_unscaled["afk_ratio"] < 1.0
     feat_unscaled = feat_unscaled[mask]
     feat_scaled = feat_scaled[mask]
@@ -314,7 +298,7 @@ def main():
         "use_logit_afk": bool(args.use_logit_afk),
         "feature_count": len(feat_cols),
         "feature_columns": feat_cols,
-        "note": "features_unscaled: 已對 rate 類別做 winsor + log1p；衍生亦已 log1p；afk_ratio 依參數為比例或 logit。features_scaled: RobustScaler 標準化後的值。"
+        "note": "features_unscaled:  rate  winsor + log1p；衍生亦已 log1p；afk_ratio 依參數為比例或 logit。features_scaled: RobustScaler 標準化後的值。"
     }
     out_feat_xlsx = save_excel_features(out_dir, feat_unscaled_export, pd.DataFrame(feat_scaled, columns=feat_cols), meta_info)
 
@@ -329,42 +313,37 @@ def main():
     (out_dir / "scaler_params.json").write_text(json.dumps(scaler_params, ensure_ascii=False, indent=2), encoding="utf-8")
     (out_dir / "columns.json").write_text(json.dumps(feat_cols, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"[OK] 特徵已輸出：{out_feat_xlsx}")
+    print(f"Result: {out_feat_xlsx}")
 
     if args.train_kmeans:
-        # 1) 分群時剔除 AFK 特徵（避免 AFK 吞掉行為差異）
         feat_scaled_for_km = feat_scaled
 
-# 2) 對探險/紅石相關特徵做「加權」（乘法放大）
         boosts = {
             "rate_chunkload": 1.0,
             "explore_intensity": 1.0,
             "rate_teleport": 1.0,
             "rate_redstone": 1.5,
             "redstone_intensity": 1.3,
-            # 你也可視狀況加： "rate_interact": 1.15
         }
         for col, w in boosts.items():
             if col in feat_scaled_for_km.columns:
                 feat_scaled_for_km.loc[:, col] *= w
 
-# 3) 用調整後的特徵做 K-Means
         labels, centers_scaled, profile_unscaled, sil = cluster_and_profiles(
             feat_unscaled=feat_unscaled,
-            feat_scaled=feat_scaled_for_km,  # ← 改用這個
+            feat_scaled=feat_scaled_for_km, 
             k=args.k,
             random_state=args.random_state
         )
 
 
-        # Build assignments table with meta
         assign = df_meta.copy()
         assign["_cluster"] = labels
         # Save KMeans results
         metrics = {"silhouette": float(sil), "k": int(args.k)}
         out_km_xlsx = save_excel_kmeans(out_dir, assignments=assign, centers_scaled=centers_scaled,
                                         profile_unscaled=profile_unscaled, metrics=metrics)
-        print(f"[OK] KMeans 已輸出：{out_km_xlsx}")
+        print(f"[OK] KMeans output: {out_km_xlsx}")
         print(f"[METRICS] silhouette={sil:.4f}  K={args.k}")
 
 if __name__ == "__main__":
