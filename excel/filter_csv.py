@@ -38,5 +38,5 @@ for file in os.listdir(INPUT_DIR):
         else:
             print(f"{file}: 原始 {before} 筆 → 過濾後 0 筆 → 檔案刪除 (不輸出)")
 
-print("全部處理完成！")
+print("Done")
 
