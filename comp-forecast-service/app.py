@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# app.py
+# Done by chatgpt
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
