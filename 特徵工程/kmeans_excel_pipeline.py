@@ -25,7 +25,6 @@ RAW_COLS = [
 OPT_TIME_COLS = ["timestamp", "time", "ts", "datetime"]
 
 def read_one_table(path: Path) -> pd.DataFrame:
-    """Read one Excel/CSV file into a normalized DataFrame (lowercase columns)."""
     try:
         if path.suffix.lower() in [".xlsx", ".xls"]:
             df = pd.read_excel(path)
@@ -65,7 +64,6 @@ def read_one_table(path: Path) -> pd.DataFrame:
     return df
 
 def walk_root(root: Path):
-    """Yield (server_folder, player_file_path) for all xlsx/csv under root/*/"""
     for server_dir in sorted([p for p in root.iterdir() if p.is_dir()]):
         for ext in ("*.xlsx", "*.xls", "*.csv"):
             for file in server_dir.glob(ext):
@@ -81,13 +79,6 @@ def winsorize_series(s: pd.Series, p: float) -> pd.Series:
 
 def make_features_with_afk(df_raw: pd.DataFrame, winsor_p=99.5, use_logit_afk=False,
                            include_pvp=True, verbose=False) -> tuple[pd.DataFrame, pd.DataFrame, RobustScaler, list]:
-    """
-    Input df_raw must contain RAW_COLS (+ optional timestamp). Returns:
-    - feat_unscaled: DataFrame of engineered features (log/winsor applied where applicable, BEFORE scaling)
-    - feat_scaled: DataFrame of scaled features (after RobustScaler)
-    - scaler: fitted RobustScaler
-    - feat_cols: list of feature column names (in same order as feat_scaled columns)
-    """
     df = df_raw.copy()
     df.columns = [c.lower() for c in df.columns]
 
@@ -174,7 +165,7 @@ def make_features_with_afk(df_raw: pd.DataFrame, winsor_p=99.5, use_logit_afk=Fa
         feat["pvp_intensity"] = pvp_intensity
     feat["social_intensity"] = social_intensity
 
-    # AFK feature
+    # AFK
     if use_logit_afk:
         feat["afk_ratio"] = np.log((afk_ratio+1e-6)/(1-afk_ratio+1e-6))
     else:
@@ -188,7 +179,6 @@ def make_features_with_afk(df_raw: pd.DataFrame, winsor_p=99.5, use_logit_afk=Fa
     return feat, feat_scaled, scaler, feat.columns.tolist()
 
 def cluster_and_profiles(feat_unscaled: pd.DataFrame, feat_scaled: pd.DataFrame, k: int, random_state: int=42):
-    """Train KMeans on scaled features, return assignments, centers, silhouette, and unscaled profiles."""
     km = KMeans(n_clusters=k, n_init=50, max_iter=500, tol=1e-4, random_state=random_state)
     labels = km.fit_predict(feat_scaled.values)
     sil = np.nan
@@ -269,12 +259,10 @@ def main():
     # save raw concat for reference
     df_all.to_parquet(out_dir / "raw_concat.parquet", index=False)
 
-    # Keep metadata cols for join later
     meta_cols = [c for c in ["server","player_id","timestamp","time","ts","datetime","row_idx"] if c in df_all.columns]
     df_meta = df_all[meta_cols].copy()
     df_raw = df_all.drop(columns=[c for c in meta_cols if c in df_all.columns], errors="ignore")
 
-    # Feature engineering
     feat_unscaled, feat_scaled, scaler, feat_cols = make_features_with_afk(
         df_raw,
         winsor_p=args.winsor_p,
@@ -288,10 +276,9 @@ def main():
     df_meta = df_meta.loc[mask]
 
 
-    # Attach meta back for export convenience (only to unscaled; scaled keeps pure features)
     feat_unscaled_export = pd.concat([df_meta.reset_index(drop=True), feat_unscaled.reset_index(drop=True)], axis=1)
 
-    # Save features excel + params
+    # Save features excel
     meta_info = {
         "winsor_p": args.winsor_p,
         "include_pvp": bool(args.include_pvp),
@@ -302,7 +289,6 @@ def main():
     }
     out_feat_xlsx = save_excel_features(out_dir, feat_unscaled_export, pd.DataFrame(feat_scaled, columns=feat_cols), meta_info)
 
-    # Save scaler parameters & feature columns
     scaler_params = {
         "center_": scaler.center_.tolist(),
         "scale_": scaler.scale_.tolist(),

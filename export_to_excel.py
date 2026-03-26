@@ -10,7 +10,7 @@ OUTDIR = r"C:\\Users\\hsu96\\OneDrive\\Desktop\\mysql_csv_exports\\excel\\logpla
 
 os.makedirs(OUTDIR, exist_ok=True)
 
-# 用 mysql-connector 當 SQLAlchemy driver；也可改成 pymysql（mysql+pymysql://...）
+# 用 mysql-connector 當 SQLAlchemy driver
 engine = create_engine(f"mysql+mysqlconnector://{USER}:{PASSWORD}@{HOST}/{DB}?charset=utf8mb4")
 
 MAX_ROWS_PER_FILE = 1_000_000
@@ -31,13 +31,12 @@ with engine.begin() as conn:
             limit = min(MAX_ROWS_PER_FILE, total - offset)
             print(f"Exporting {t} part {p}/{parts} rows {limit}...")
 
-            # 讀資料（參數化避免 SQL injection，雖然這裡用不到）
+            # 讀資料
             df = pd.read_sql(
                 text(f"SELECT * FROM `{t}` LIMIT :limit OFFSET :offset"),
                 conn,
                 params={"limit": limit, "offset": offset}
             )
-
             out = os.path.join(OUTDIR, f"{t}_part{p}.csv" if parts > 1 else f"{t}.csv")
             df.to_csv(out, index=False, encoding="utf-8-sig")
             offset += limit

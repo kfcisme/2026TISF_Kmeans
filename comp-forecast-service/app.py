@@ -5,7 +5,7 @@ from typing import List, Optional
 import os
 import numpy as np
 
-# 可選：ONNX runtime / Torch（若你之後要換 LSTM/ONNX）
+# 可選：ONNX runtime / Torch
 USE_ONNX = os.getenv("USE_ONNX", "false").lower() == "true"
 ONNX_PATH = os.getenv("ONNX_PATH", "lstm_comp.onnx")
 USE_TORCH = os.getenv("USE_TORCH", "false").lower() == "true"
@@ -23,9 +23,8 @@ elif USE_TORCH:
     try:
         import torch
         from model_lstm import SimpleLSTM
-        # 這裡示範讀一個 state_dict；實務請換成你的檔名
         CKPT = os.getenv("TORCH_CKPT", "lstm_comp.pt")
-        D = int(os.getenv("INPUT_DIM", "9"))  # 8 類比例 + 1 總上線N
+        D = int(os.getenv("INPUT_DIM", "9"))
         H = int(os.getenv("HIDDEN", "64"))
         CLASSES = 8
         model = SimpleLSTM(D, H, CLASSES)
@@ -40,26 +39,26 @@ elif USE_TORCH:
 app = FastAPI(title="Composition Forecast Service", version="1.0.0")
 
 class Req(BaseModel):
-    server_id: str = Field(..., description="伺服器ID")
-    comp_seq: List[List[float]] = Field(..., description="最近L個視窗的8維比例，每列和=1")
-    n_seq: Optional[List[int]] = Field(None, description="最近L個視窗的總上線人數（可選）")
-    horizon: int = Field(1, ge=1, le=6, description="往前預測幾個視窗，預設1")
+    server_id: str = Field(..., description="Server ID")
+    comp_seq: List[List[float]] = Field(..., description="最近L的8維比例，每列和=1")
+    n_seq: Optional[List[int]] = Field(None, description="最近L的總上線人數")
+    horizon: int = Field(1, ge=1, le=6, description="往前預測時間序")
 
     @validator("comp_seq")
     def check_comp(cls, v):
         if len(v) < 2:
-            raise ValueError("comp_seq 至少要2個時間點（建議≥6）")
+            raise ValueError("comp_seq 至少要2個時間點")
         for row in v:
             if len(row) != 8:
-                raise ValueError("每個 comp 向量長度必須為8（AFK..Survival）")
+                raise ValueError("每個 comp 向量長度必須為8")
             s = sum(row)
             if s <= 0:
-                raise ValueError("comp 向量不可全0")
+                raise ValueError("comp 向量不可全是0")
         return v
 
 class Resp(BaseModel):
-    p_hat: List[List[float]]  # shape: (horizon, 8)
-    method: str               # "baseline" / "onnx" / "torch"
+    p_hat: List[List[float]]  # shape
+    method: str
 
 def _normalize_simplex(x: np.ndarray) -> np.ndarray:
     x = np.maximum(x, 1e-12)
@@ -67,10 +66,7 @@ def _normalize_simplex(x: np.ndarray) -> np.ndarray:
     return x
 
 def baseline_predict(comp_seq: np.ndarray, horizon: int) -> np.ndarray:
-    """
-    comp_seq: (L, 8)
-    簡單 baseline：後3個視窗均值作為 t+1；遞迴產生多步。
-    """
+
     seq = comp_seq.copy()
     outs = []
     for _ in range(horizon):
@@ -95,20 +91,17 @@ def forecast_next_comp(req: Req):
     comp_seq = np.array(req.comp_seq, dtype=np.float32)  # (L, 8)
     horizon = int(req.horizon)
 
-    # 後端選擇：ONNX > TORCH > baseline
     method = "baseline"
     if sess is not None:
         try:
             import onnxruntime as ort
-            # 假設 ONNX 輸入是 (1, L, 9)；第9維是 N（若沒有N，就填總上線平均或0）
             if req.n_seq is not None:
                 n = np.array(req.n_seq, dtype=np.float32).reshape(-1, 1)
             else:
-                # 沒有N就用全1（或歷史平均），避免模型崩潰
                 n = np.ones((comp_seq.shape[0], 1), dtype=np.float32)
             x = np.concatenate([comp_seq, n], axis=1)[None, ...]  # (1, L, 9)
             out = sess.run(None, {"input": x})
-            p1 = out[0]  # 期望輸出為 (1, 8) 或 (1, H, 8)
+            p1 = out[0]
             if p1.ndim == 3: p1 = p1[:, -1, :]
             pred = _normalize_simplex(p1[0])
             # 多步遞迴
@@ -116,7 +109,6 @@ def forecast_next_comp(req: Req):
             seq_comp = comp_seq.copy()
             for _ in range(horizon - 1):
                 seq_comp = np.concatenate([seq_comp, pred[None, :]], axis=0)
-                # 之後每步都用最近 L 步丟進 ONNX（為簡化此處用 baseline 遞迴，也可再跑ONNX）
                 pred = baseline_predict(seq_comp, 1)[0]
                 preds.append(pred)
             method = "onnx"
