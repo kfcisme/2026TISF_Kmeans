@@ -31,7 +31,7 @@
 
 ## 安裝需求
 
-- Python 3.10+（建議）  
+- Python 3.10+（ 
 - 主要套件：  
   - `pandas`, `numpy`  
   - `scikit-learn`（KMeans、標準化...等）  
